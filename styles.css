@@ -62,7 +62,7 @@ footer .wordmark { font-size: 24px; }
 /* Live GitHub profile link beneath the About section marker. */
 .about-sidebar { min-width: 0; }
 .about-github { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 14px 12px; width: fit-content; max-width: 100%; margin-top: 36px; border-radius: 4px; }
-.about-avatar { display: block; grid-column: 1 / -1; width: 128px; height: 128px; max-width: 100%; aspect-ratio: 1; border-radius: 50%; object-fit: cover; background: var(--surface); border: 1px solid var(--line); transition: border-color .2s; }
+.about-avatar { display: block; grid-column: 1 / -1; width: 128px; height: auto; max-width: 100%; aspect-ratio: 1; border-radius: 50%; object-fit: cover; background: var(--surface); border: 1px solid var(--line); transition: border-color .2s; }
 .about-github-copy { display: flex; flex-direction: column; min-width: 0; gap: 2px; }
 .about-github-handle { font-family: var(--mono); font-size: 1rem; overflow-wrap: anywhere; }
 .about-github-label { color: var(--muted); font-size: .875rem; }
@@ -71,7 +71,7 @@ footer .wordmark { font-size: 24px; }
 .about-github:hover .about-github-handle, .about-github:focus-visible .about-github-handle { color: var(--accent); }
 @media (max-width: 760px) {
   .about-github { grid-template-columns: 64px minmax(0, 1fr) auto; margin-top: 22px; gap: 14px; }
-  .about-avatar { grid-column: auto; width: 64px; height: 64px; }
+  .about-avatar { grid-column: auto; width: 64px; height: auto; }
 }
 
 /* A single heartbeat flowing into the section divider. */
@@ -344,7 +344,9 @@ nav a.active { background: rgba(119,175,255,.075); }
 .interest-strip span { position: relative; padding-left: 16px; font-size: .9rem; }
 .interest-strip span::before { content: ''; position: absolute; left: 0; top: .72em; width: 5px; height: 5px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 10px rgba(119,175,255,.5); }
 .about-github { margin-top: 42px; }
-.about-avatar { width: 148px; height: 148px; }
+@media (min-width: 761px) {
+  .about-avatar { width: 148px; }
+}
 
 .research-section { background: radial-gradient(circle at 80% 10%, rgba(67,107,164,.11), transparent 30%), linear-gradient(180deg, #151b24, #10141b); }
 .research-grid { gap: clamp(18px, 2vw, 30px); }
