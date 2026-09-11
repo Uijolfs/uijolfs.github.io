@@ -28,7 +28,7 @@
   <link rel="icon" href="/favicon-192.png?v=ecg-2" type="image/png" sizes="192x192">
   <link rel="icon" href="/favicon.svg?v=ecg-2" type="image/svg+xml" sizes="any">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=ecg-2" sizes="180x180">
-  <link rel="stylesheet" href="styles.css?v=hero-fit-4">
+  <link rel="stylesheet" href="styles.css?v=hero-center-header-ecg-5">
   <link rel="stylesheet" href="gallery.css?v=visual-refinement-3">
   <script src="script.js?v=visual-refinement-3" defer></script>
 </head>
@@ -40,6 +40,13 @@
       <a href="#about">About</a><a href="#research">Research</a><a href="#notes">Notes</a><a href="#personal">Personal</a>
     </nav>
     <a class="github-link" href="https://github.com/Uijolfs" target="_blank" rel="noopener noreferrer">GitHub <span aria-hidden="true">↗</span></a>
+      <div class="ecg-divider header-ecg" aria-hidden="true">
+        <span class="ecg-lead"></span>
+        <svg viewBox="0 0 260 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M0 48 H24 C32 48 34 40 42 40 S52 48 62 48 H79 L87 56 L95 8 L104 70 L115 48 H136 C151 48 157 29 174 29 S197 48 216 48 H260" />
+        </svg>
+        <span class="ecg-tail"></span>
+      </div>
   </header>
 
   <main id="main">
@@ -57,13 +64,6 @@
           <div class="chaos-stage"><canvas id="lorenz" role="img" aria-label="A numerical trajectory of the Lorenz system, tracing the two wings of a chaotic attractor."></canvas></div>
           <figcaption id="chaos-caption"><span class="chaos-name">LORENZ ATTRACTOR<span class="chaos-parameters">σ = 10 · ρ = 28 · β = 8/3</span></span><button id="chaos-toggle" class="motion-button" type="button" aria-pressed="false" aria-label="Pause Lorenz animation">Pause motion</button></figcaption>
         </figure>
-      </div>
-      <div class="ecg-divider" aria-hidden="true">
-        <span class="ecg-lead"></span>
-        <svg viewBox="0 0 260 80" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M0 48 H24 C32 48 34 40 42 40 S52 48 62 48 H79 L87 56 L95 8 L104 70 L115 48 H136 C151 48 157 29 174 29 S197 48 216 48 H260" />
-        </svg>
-        <span class="ecg-tail"></span>
       </div>
       <div class="hero-bottom page-width"><a class="scroll-link" href="#about">About me <span aria-hidden="true">↓</span></a></div>
     </section>
