@@ -1,0 +1,8 @@
+/* Approved hydrogen-orbit wordmark. */
+.wordmark, footer .wordmark{display:inline-block;font:500 32px/1.3 'Cormorant Garamond',Georgia,serif;letter-spacing:-.025em;white-space:nowrap;-webkit-text-stroke:.2px currentColor}
+.wordmark-glyph{display:inline-block}
+.wordmark-orbit{position:relative;display:inline-block;width:.405em;height:.405em;border:.022em solid currentColor;border-radius:50%;vertical-align:baseline;margin:0 .018em 0 .012em;transform:translateY(.008em)}
+.wordmark-orbit::after{content:'';position:absolute;width:.072em;height:.072em;border-radius:50%;background:currentColor;left:50%;top:50%;transform:translate(-50%,-50%)}
+.wordmark-orbit::before{content:'';position:absolute;width:.065em;height:.065em;border-radius:50%;background:var(--accent);left:50%;top:calc(-.022em / 2);transform:translate(-50%,-50%);box-shadow:0 0 0 .014em var(--bg)}
+.wordmark-period{display:inline-block;width:.064em;height:.064em;background:currentColor;border-radius:50%;margin-left:.07em}
+.wordmark-readable{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
