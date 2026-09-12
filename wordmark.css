@@ -13,13 +13,17 @@
 .brand-lockup .brand-statement{margin:0;padding-left:16px;border-left:1px solid var(--line);color:var(--text);font:400 16px/1.5 var(--sans,Arial,sans-serif);letter-spacing:.025em;text-transform:uppercase;white-space:nowrap}
 .brand-statement strong{font-weight:700}
 .brand-statement span{font-weight:400;color:var(--muted)}
-.site-header,.gallery-page .gallery-header{display:grid;grid-template-columns:1fr auto auto;gap:24px;align-items:center}
+.site-header,.gallery-page .gallery-header{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:24px;align-items:center}
 .site-header>.brand-lockup{grid-column:1;grid-row:1}
 .site-header>nav,.site-header>.gallery-back{grid-column:2;grid-row:1}
 .site-header>.header-actions,.site-header>.github-link{grid-column:3;grid-row:1;justify-self:end}
+/* Equal outer columns keep navigation on the page centerline. */
+.site-header>nav{justify-self:center;background:transparent;border-color:color-mix(in srgb,var(--line) 45%,transparent)}
+.site-header .brand-statement{font-size:14px;color:var(--muted)}
+.site-header .brand-statement strong{font-weight:600}
 footer.page-width{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:24px;padding-block:36px}
 footer.page-width>a:last-child{margin-left:auto}
-@media(max-width:1100px){
+@media(max-width:1200px){
  .site-header,.site-header:has(.header-ecg),.gallery-page .gallery-header{grid-template-columns:1fr auto;height:auto;min-height:120px;padding-block:12px 18px;gap:8px 16px}
  .site-header>.header-actions,.site-header>.github-link{grid-column:2;grid-row:1}
  .site-header>nav,.site-header>.gallery-back{grid-column:1 / -1;grid-row:2;justify-self:center}
