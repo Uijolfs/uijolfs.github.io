@@ -1,8 +1,9 @@
 // Keep navigation and sticky-header styling aligned with the reading position.
 (() => {
+  if (document.body.classList.contains('inner-page')) return;
   const header = document.querySelector('.site-header');
   const links = [...document.querySelectorAll('nav a')];
-  const sections = links.map(link => document.getElementById(link.hash.slice(1)));
+  const sections = links.map(link => document.getElementById(link.hash.slice(1) || link.pathname.split('/').pop().replace('.html', '')));
   let frame = 0, previousHeight = 0, previousActive = null;
   function update() {
     frame = 0;
@@ -88,12 +89,12 @@
         const [x, y] = project(trail[i]);
         if (i === start) ctx.moveTo(x, y); else ctx.lineTo(x, y);
       }
-      ctx.strokeStyle = `rgba(119,175,255,${.12 + .88 * (band / 15) ** 1.6})`;
+      ctx.strokeStyle = `rgba(82,111,128,${.12 + .88 * (band / 15) ** 1.6})`;
       ctx.stroke();
     }
     const [x, y] = project(trail[trail.length - 1]);
     ctx.beginPath(); ctx.arc(x, y, 2.7, 0, Math.PI * 2);
-    ctx.fillStyle = '#f3f4f6'; ctx.shadowColor = '#77afff'; ctx.shadowBlur = 12;
+    ctx.fillStyle = '#526f80'; ctx.shadowColor = '#879487'; ctx.shadowBlur = 8;
     ctx.fill(); ctx.shadowBlur = 0;
   }
   function resize() {
@@ -104,7 +105,7 @@
     canvas.height = backdrop.height = Math.round(height * ratio);
     ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
     bg.setTransform(ratio, 0, 0, ratio, 0, 0);
-    bg.strokeStyle = 'rgba(119,175,255,.17)'; bg.lineWidth = .65;
+    bg.strokeStyle = 'rgba(82,111,128,.20)'; bg.lineWidth = .65;
     bg.beginPath();
     orbit.forEach((p, i) => { const [x, y] = project(p); if (i === 0) bg.moveTo(x, y); else bg.lineTo(x, y); });
     bg.stroke(); draw();

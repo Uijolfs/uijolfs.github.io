@@ -1,0 +1,60 @@
+/* Quiet color, strong reading contrast; shared across every document. */
+:root{color-scheme:light;--bg:#f2f0eb;--surface:#e6e3dc;--text:#303638;--muted:#626b6d;--dim:#626b6d;--line:#c9ceca;--accent:#526f80;--sage:#879487;--rose:#ad8e89}
+body{background:var(--bg);color:var(--text)}
+.site-header,.site-header.is-scrolled{background:rgba(242,240,235,.94);border-color:var(--line);box-shadow:0 4px 24px #30363806}
+nav{background:#ffffff30;border-color:var(--line)}nav a.active,nav a[aria-current=page]{background:#526f8010;color:var(--accent)}
+.hero::before{background:radial-gradient(circle,#87948722,transparent 68%)}
+.learning-section::before,.personal-section::before{background:none}
+.hero-intro .hero-description,.about-copy p,.section-intro>p,.personal-content p:not(.eyebrow),.interest-strip span{color:var(--muted)}
+.section-number,.hero-heading em{color:var(--accent)}
+.interest-strip span::before{background:var(--sage);box-shadow:none}
+.chaos-stage{background:radial-gradient(ellipse,#87948718,transparent 70%)}
+.research-section{background:#e4e9e7;border-color:var(--line)}
+.personal-section{background:#ece5e1;border-color:var(--line)}
+.research-card,.learning-column,.album-preview a,.photo-link{border-color:var(--line);box-shadow:0 12px 32px #30363809}
+.research-card:hover,.learning-column:hover{box-shadow:0 18px 40px #30363812}
+.learning-column{background:#ffffff35}
+.research-front{min-height:clamp(240px,35vh,390px)}
+.research-open{color:#f2f0eb}.research-art{filter:saturate(.5)}
+.album-preview img{filter:none}
+.about-section::after,.learning-section::after{background:var(--line)}
+.research-layout>.text-link{grid-column:1/-1;width:fit-content;margin-top:0}
+.photo-lightbox{--text:#f2f0eb;--muted:#c9ceca;--dim:#c9ceca;--accent:#b0c1c8;--line:#626b6d}
+main>section{scrollbar-color:var(--sage) transparent}
+main>section.spring-preview,footer.spring-preview{opacity:.72;transform:scale(.997);filter:none}
+.chapter{background:var(--bg);padding:clamp(48px,7vh,100px) var(--page-edge);display:grid;align-content:safe center}
+.chapter:nth-child(2n){background:#e4e9e7}.chapter:nth-child(3n){background:#ece5e1}
+.chapter-inner{width:min(1120px,100%);margin-inline:auto}
+.chapter h1,.chapter h2{font-family:var(--display);font-weight:400;font-size:clamp(2.6rem,5.6vw,5.7rem);line-height:1.1;letter-spacing:-.04em;margin:22px 0 30px;text-wrap:balance}
+.chapter h2{font-size:clamp(2.4rem,4.4vw,4.5rem)}
+.chapter em{color:var(--accent);font-weight:400}
+.chapter-lead{font-size:clamp(1.1rem,1.6vw,1.4rem);max-width:65ch;line-height:1.8;color:var(--muted)}
+.chapter-copy{max-width:100%;color:var(--muted)}.chapter-copy>p{max-width:68ch;margin-top:20px}
+.chapter h3{font-size:1.25rem;color:var(--text);font-weight:500;margin:24px 0 12px}
+.chapter .eyebrow{letter-spacing:.14em}
+.chapter-index{display:flex;flex-wrap:wrap;gap:12px 32px;margin-top:30px}
+.chapter-index .text-link{margin-top:0}
+.detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:40px}
+.detail-grid article{border-top:1px solid var(--line);padding-top:20px}
+.project-layout{display:grid;grid-template-columns:1fr 1.1fr;gap:clamp(28px,5vw,72px);align-items:center}
+.project-layout img{width:100%;height:auto;border-radius:18px;filter:saturate(.5)}
+.project-layout .release-note{margin-top:28px;font-size:.9rem}
+.inner-page .personal-album{margin-top:32px}
+@view-transition{navigation:auto}
+::view-transition-old(root){animation:page-out .16s ease both}
+::view-transition-new(root){animation:page-in .28s ease both}
+@keyframes page-out{to{opacity:0}}
+@keyframes page-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@media(max-width:850px),(hover:none),(pointer:coarse){
+ main>section{height:auto;min-height:calc(100svh - var(--header-height));overflow:visible}
+ .hero{overflow:hidden}.chapter{align-content:center}
+ .project-layout,.detail-grid{grid-template-columns:1fr}
+ .project-layout img{max-height:340px;object-fit:cover}
+ .research-layout,.personal-section>.section-grid{min-height:0}
+ .chapter-index{display:grid;gap:12px}
+}
+@media(max-width:760px){.site-header{gap:8px 20px}.chapter h1{font-size:clamp(2.5rem,10vw,4rem)}.chapter h2{font-size:clamp(2.3rem,9vw,3.5rem)}}
+@media(prefers-reduced-motion:reduce){
+ main>section{height:auto;min-height:0;overflow:visible}
+ ::view-transition-old(root),::view-transition-new(root){animation:none}
+}

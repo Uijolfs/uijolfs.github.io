@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#0c0e12">
+  <meta name="theme-color" content="#F2F0EB">
   <meta name="description" content="Uijolfs — Xian Chen’s personal website. Physical reasoning, mathematical models, and questions that matter in people’s lives.">
   <title>Uijolfs · Between the world and its models</title>
   <link rel="canonical" href="https://uijolfs.github.io/">
@@ -28,14 +28,16 @@
   <link rel="mask-icon" href="/assets/icons/ecg-pinned-v3.svg" color="#397bd1">
   <link rel="stylesheet" href="styles.css?v=avatar-circle-6">
   <link rel="stylesheet" href="gallery.css?v=visual-refinement-3">
-  <script src="script.js?v=visual-refinement-3" defer></script>
+  <script src="script.js?v=morandi-1" defer></script>
+<link rel="stylesheet" href="morandi.css?v=1">
+<script src="navigation.js?v=1" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
   <header class="site-header">
-    <a class="wordmark" href="#home" aria-label="Uijolfs, home">Uijolfs<span class="wordmark-dot">.</span></a>
+    <a class="wordmark" href="index.html" aria-label="Uijolfs, home">Uijolfs<span class="wordmark-dot">.</span></a>
     <nav aria-label="Main navigation">
-      <a href="#about">About</a><a href="#research">Research</a><a href="#notes">Notes</a><a href="#personal">Personal</a>
+      <a href="about.html">About</a><a href="research.html">Research</a><a href="notes.html">Notes</a><a href="personal.html">Personal</a>
     </nav>
     <a class="github-link" href="https://github.com/Uijolfs" target="_blank" rel="noopener noreferrer">GitHub <span aria-hidden="true">↗</span></a>
       <div class="ecg-divider header-ecg" aria-hidden="true">
@@ -81,6 +83,7 @@
           <p>I am an undergraduate double majoring in Physics and Electrical &amp; Computer Engineering at Worcester Polytechnic Institute. Before transferring to WPI, I spent two years studying physics at Lanzhou University.</p>
           <p>My current research focuses on computational cardiac electrophysiology. This site also collects my notes and experiments in physics, neuroscience, nonlinear dynamics, and mathematical methods for physics.</p>
         </div>
+<a class="text-link" href="about.html">More about me <span aria-hidden="true">↗</span></a>
         <div class="interest-strip"><span>Cardiac electrophysiology</span><span>Digital twins</span><span>Biophysics</span><span>Nonlinear dynamics</span></div>
       </div>
     </section>
@@ -90,44 +93,11 @@
         <div class="section-marker"><span class="section-number">02</span><h2 id="research-title">Research</h2></div>
         <div class="section-intro"><h3 class="section-headline">Research directions.</h3><p>Building models, working toward clinical applications, and exploring the dynamics behind complex systems.</p></div>
         <div class="research-grid">
-          <article class="research-card">
-            <div class="research-front">
-              <img class="research-art" src="assets/research-modeling-field.webp" alt="" width="1536" height="1024" loading="lazy" decoding="async">
-              <h4><button class="research-open" type="button" disabled aria-expanded="true" aria-controls="research-panel-modeling" aria-label="View Cardiac Modeling and Digital Twins projects"><span>Cardiac Modeling<br>&amp; Digital Twins</span><span class="research-open-icon" aria-hidden="true">↗</span></button></h4>
-            </div>
-            <div class="research-back" id="research-panel-modeling" role="region" aria-label="Cardiac Modeling and Digital Twins projects">
-              <button class="research-back-button" type="button" hidden><span aria-hidden="true">←</span> Back</button>
-              <p class="research-card-description">Connecting cardiac electrical activity with computational models.</p>
-              <section class="research-status" aria-labelledby="modeling-ongoing"><h5 id="modeling-ongoing">In progress</h5><h6>Cardiac digital twins</h6><p>Developing and evaluating models that connect cardiac activation with ECG signals.</p></section>
-              <section class="research-status" aria-labelledby="modeling-completed"><h5 id="modeling-completed">Completed</h5><h6>Real-time cardiac simulation</h6><p>An IQP project exploring finite-state machine models of cardiac electrical propagation.</p></section>
-            </div>
-          </article>
-          <article class="research-card">
-            <div class="research-front">
-              <img class="research-art" src="assets/research-clinical.webp" alt="" width="1536" height="1024" loading="lazy" decoding="async">
-              <h4><button class="research-open" type="button" disabled aria-expanded="true" aria-controls="research-panel-clinical" aria-label="View Clinical Applications projects"><span>Clinical<br>Applications</span><span class="research-open-icon" aria-hidden="true">↗</span></button></h4>
-            </div>
-            <div class="research-back" id="research-panel-clinical" role="region" aria-label="Clinical Applications projects">
-              <button class="research-back-button" type="button" hidden><span aria-hidden="true">←</span> Back</button>
-              <p class="research-card-description">Turning physiological signals and models into tools for clinically meaningful questions.</p>
-              <section class="research-status" aria-labelledby="clinical-ongoing"><h5 id="clinical-ongoing">In progress</h5><h6>ECG-based localization &amp; navigation</h6><p>Using ECG measurements and anatomy to localize cardiac electrical sources and guide catheter movement.</p></section>
-              <section class="research-status" aria-labelledby="clinical-completed"><h5 id="clinical-completed">Completed</h5><p class="research-empty">No completed projects listed yet.</p></section>
-            </div>
-          </article>
-          <article class="research-card">
-            <div class="research-front">
-              <img class="research-art" src="assets/research-dynamics-hd.webp" alt="" width="1536" height="1024" loading="lazy" decoding="async">
-              <h4><button class="research-open" type="button" disabled aria-expanded="true" aria-controls="research-panel-dynamics" aria-label="View Dynamics and Emergence projects"><span>Dynamics<br>&amp; Emergence</span><span class="research-open-icon" aria-hidden="true">↗</span></button></h4>
-            </div>
-            <div class="research-back" id="research-panel-dynamics" role="region" aria-label="Dynamics and Emergence projects">
-              <button class="research-back-button" type="button" hidden><span aria-hidden="true">←</span> Back</button>
-              <p class="research-card-description">How do simple interactions give rise to complex behavior?</p>
-              <section class="research-status" aria-labelledby="dynamics-ongoing"><h5 id="dynamics-ongoing">In progress</h5><h6>Nonlinear dynamics &amp; chaos</h6><p>Independent study of dynamical systems, alongside an interest in collective behavior and phase transitions.</p></section>
-              <section class="research-status" aria-labelledby="dynamics-completed"><h5 id="dynamics-completed">Completed</h5><p class="research-empty">No completed projects listed yet.</p></section>
-            </div>
-          </article>
+          <a class="research-card" href="research.html#modeling"><div class="research-front"><img class="research-art" src="assets/research-modeling-field.webp" alt="" width="1536" height="1024" loading="lazy"><h4 class="research-open"><span>Cardiac Modeling &amp; Digital Twins</span><span aria-hidden="true">↗</span></h4></div></a>
+          <a class="research-card" href="research.html#clinical"><div class="research-front"><img class="research-art" src="assets/research-clinical.webp" alt="" width="1536" height="1024" loading="lazy"><h4 class="research-open"><span>Clinical Applications</span><span aria-hidden="true">↗</span></h4></div></a>
+          <a class="research-card" href="research.html#dynamics"><div class="research-front"><img class="research-art" src="assets/research-dynamics-hd.webp" alt="" width="1536" height="1024" loading="lazy"><h4 class="research-open"><span>Dynamics &amp; Emergence</span><span aria-hidden="true">↗</span></h4></div></a>
         </div>
-        <p class="release-note research-public-note">Descriptions here are an overview. Code and publications will be linked as they become available for public release.</p>
+        <a class="text-link" href="research.html">All research directions <span aria-hidden="true">↗</span></a><p class="release-note research-public-note">Descriptions here are an overview. Code and publications will be linked as they become available for public release.</p>
       </div>
     </section>
 
@@ -137,23 +107,23 @@
         <div class="section-intro"><h3 class="section-headline">Learning</h3><p>Notes and experiments, currently being organized.</p></div>
       </div>
       <div class="learning-grid">
-        <a class="learning-column" href="https://github.com/Uijolfs/Undergraduate" target="_blank" rel="noopener noreferrer" aria-label="Physics and Mathematics collections in the Undergraduate GitHub repository (opens in a new tab)">
+        <a class="learning-column" href="notes.html#physics">
           <span class="learning-number" aria-hidden="true">01</span>
           <h4>Physics &amp;<br>Mathematics</h4>
           <ul><li>Classical &amp; statistical physics</li><li>Mathematical methods</li><li>Nonlinear dynamics</li></ul>
-          <span class="learning-repository">Undergraduate <span aria-hidden="true">↗</span></span>
+          <span class="learning-repository">Explore collection <span aria-hidden="true">↗</span></span>
         </a>
-        <a class="learning-column" href="https://github.com/Uijolfs/Undergraduate" target="_blank" rel="noopener noreferrer" aria-label="Computation and Modeling collections in the Undergraduate GitHub repository (opens in a new tab)">
+        <a class="learning-column" href="notes.html#computation">
           <span class="learning-number" aria-hidden="true">02</span>
           <h4>Computation &amp;<br>Modeling</h4>
           <ul><li>Numerical methods</li><li>Computational physics</li><li>Computational neuroscience</li></ul>
-          <span class="learning-repository">Undergraduate <span aria-hidden="true">↗</span></span>
+          <span class="learning-repository">Explore collection <span aria-hidden="true">↗</span></span>
         </a>
-        <a class="learning-column" href="https://github.com/Uijolfs/Undergraduate" target="_blank" rel="noopener noreferrer" aria-label="Engineering and Signals collections in the Undergraduate GitHub repository (opens in a new tab)">
+        <a class="learning-column" href="notes.html#engineering">
           <span class="learning-number" aria-hidden="true">03</span>
           <h4>Engineering &amp;<br>Signals</h4>
           <ul><li>Circuits &amp; electronics</li><li>Signals &amp; systems</li><li>Embedded systems &amp; measurement</li></ul>
-          <span class="learning-repository">Undergraduate <span aria-hidden="true">↗</span></span>
+          <span class="learning-repository">Explore collection <span aria-hidden="true">↗</span></span>
         </a>
       </div>
     </section>
@@ -168,7 +138,7 @@
           <p>This space is also a personal notebook: a place for the questions, ideas, and small discoveries that come along with learning.</p>
         </div></div>
         <div class="personal-album" aria-labelledby="album-title">
-          <div class="album-heading"><h4 id="album-title">Worcester <span>2026 · 20 photographs</span></h4><a class="text-link" href="gallery.html">View gallery <span aria-hidden="true">↗</span></a></div>
+          <a class="text-link" href="personal.html">Open personal notebook <span aria-hidden="true">↗</span></a><div class="album-heading"><h4 id="album-title">Worcester <span>2026 · 20 photographs</span></h4><a class="text-link" href="gallery.html">View gallery <span aria-hidden="true">↗</span></a></div>
           <div class="album-preview">
             <a href="gallery.html#dsc08553" aria-label="View Worcester photograph: boats on the lake"><img src="assets/photos/worcester-2026/dsc08553-thumb.webp" width="800" height="450" alt="Small boats on a lake, with houses along the opposite shore." loading="lazy" decoding="async"></a>
             <a href="gallery.html#dsc08571" aria-label="View Worcester photograph: trees along the water"><img src="assets/photos/worcester-2026/dsc08571-thumb.webp" width="800" height="600" alt="Bare tree trunks frame the water and houses across the lake." loading="lazy" decoding="async"></a>
