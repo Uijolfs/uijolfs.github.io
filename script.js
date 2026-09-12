@@ -69,6 +69,7 @@
   let width = 0, height = 0, ratio = 1, frame = 0, last = 0, carry = 0;
   let visible = true;
   let paused = reduced.matches;
+  let dark = document.documentElement.dataset.theme === 'dark';
   // An almost frontal x-z projection retains the familiar butterfly silhouette.
   function project([x, y, z]) {
     const scale = Math.min(width / 49, height / 54);
@@ -89,12 +90,12 @@
         const [x, y] = project(trail[i]);
         if (i === start) ctx.moveTo(x, y); else ctx.lineTo(x, y);
       }
-      ctx.strokeStyle = `rgba(82,111,128,${.12 + .88 * (band / 15) ** 1.6})`;
+      ctx.strokeStyle = `rgba(${dark ? '119,175,255' : '82,111,128'},${.12 + .88 * (band / 15) ** 1.6})`;
       ctx.stroke();
     }
     const [x, y] = project(trail[trail.length - 1]);
     ctx.beginPath(); ctx.arc(x, y, 2.7, 0, Math.PI * 2);
-    ctx.fillStyle = '#526f80'; ctx.shadowColor = '#879487'; ctx.shadowBlur = 8;
+    ctx.fillStyle = dark ? '#f3f4f6' : '#526f80'; ctx.shadowColor = dark ? '#77afff' : '#879487'; ctx.shadowBlur = dark ? 12 : 8;
     ctx.fill(); ctx.shadowBlur = 0;
   }
   function resize() {
@@ -105,7 +106,7 @@
     canvas.height = backdrop.height = Math.round(height * ratio);
     ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
     bg.setTransform(ratio, 0, 0, ratio, 0, 0);
-    bg.strokeStyle = 'rgba(82,111,128,.20)'; bg.lineWidth = .65;
+    bg.strokeStyle = dark ? 'rgba(119,175,255,.17)' : 'rgba(82,111,128,.20)'; bg.lineWidth = .65;
     bg.beginPath();
     orbit.forEach((p, i) => { const [x, y] = project(p); if (i === 0) bg.moveTo(x, y); else bg.lineTo(x, y); });
     bg.stroke(); draw();
@@ -141,6 +142,10 @@
   if ('IntersectionObserver' in window) new IntersectionObserver(entries => {
     visible = entries[0].isIntersecting; schedule();
   }).observe(canvas);
+  document.addEventListener('themechange', () => {
+    dark = document.documentElement.dataset.theme === 'dark';
+    resize();
+  });
   resize(); sync();
 })();
 
