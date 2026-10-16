@@ -5,20 +5,31 @@
   const links = [...document.querySelectorAll('nav a')];
   const sections = links.map(link => document.getElementById(link.hash.slice(1) || link.pathname.split('/').pop().replace('.html', '')));
   let frame = 0, previousHeight = 0, previousActive = null;
-  function update() {
-    frame = 0;
-    const height = header?.offsetHeight || 90;
-    const readingLine = height + Math.min(window.innerHeight * .2, 160);
-    let active = -1;
-    sections.forEach((section, index) => {
-      if (section && section.getBoundingClientRect().top <= readingLine) active = index;
-    });
-    if (window.scrollY > 0 && window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 4) active = links.length - 1;
+  let readingOffset = 0, bottom = 0, offsets = [];
+  const stylesheets = [...document.querySelectorAll('head link[rel="stylesheet"]')]
+    .filter(link => new URL(link.href).origin === location.origin);
+  const failedStylesheets = new WeakSet();
+  function measure() {
+    // A cached script can execute before a slow stylesheet. Never turn an
+    // unstyled header measurement into the height of every section.
+    if (document.readyState !== 'complete' && stylesheets.some(link => !link.sheet && !failedStylesheets.has(link))) return;
+    const height = header?.offsetHeight || 88;
     if (height !== previousHeight) {
       document.documentElement.style.setProperty('--header-height', height + 'px');
       previousHeight = height;
     }
-    header?.classList.toggle('is-scrolled', window.scrollY > 12);
+    readingOffset = height + Math.min(innerHeight * .2, 160);
+    offsets = sections.map(section => section ? section.getBoundingClientRect().top + scrollY : Infinity);
+    bottom = document.documentElement.scrollHeight - innerHeight - 4;
+    schedule();
+  }
+  function update() {
+    frame = 0;
+    const readingLine = scrollY + readingOffset;
+    let active = -1;
+    offsets.forEach((top, index) => { if (top <= readingLine) active = index; });
+    if (scrollY > 0 && scrollY >= bottom) active = links.length - 1;
+    header?.classList.toggle('is-scrolled', scrollY > 12);
     if (active === previousActive) return;
     previousActive = active;
     links.forEach((link, index) => {
@@ -31,12 +42,23 @@
   function schedule() {
     if (!frame) frame = requestAnimationFrame(update);
   }
+  stylesheets.forEach(link => {
+    if (link.sheet) return;
+    link.addEventListener('load', measure, { once: true });
+    link.addEventListener('error', () => { failedStylesheets.add(link); measure(); }, { once: true });
+  });
   window.addEventListener('scroll', schedule, { passive: true });
-  window.addEventListener('resize', schedule, { passive: true });
+  window.addEventListener('resize', measure, { passive: true });
   window.addEventListener('hashchange', schedule);
-  window.addEventListener('pageshow', schedule);
-  if (header && 'ResizeObserver' in window) new ResizeObserver(schedule).observe(header);
-  schedule();
+  window.addEventListener('pageshow', measure);
+  window.addEventListener('load', measure, { once: true });
+  if ('ResizeObserver' in window) {
+    const layout = new ResizeObserver(measure);
+    if (header) layout.observe(header);
+    document.querySelectorAll('main > section, footer').forEach(section => layout.observe(section));
+  }
+  document.fonts?.ready.then(measure);
+  measure();
 })();
 
 // Lorenz's equations, integrated with fourth-order Runge–Kutta.
@@ -67,7 +89,7 @@
   for (let i = 0; i < 9000; i++) { state = step(state); orbit.push(state); }
   const trail = orbit.slice(-600);
   let width = 0, height = 0, ratio = 1, frame = 0, last = 0, carry = 0;
-  let visible = true;
+  let visible = true, scrolling = false, pageMoving = false, scrollTimer = 0;
   let paused = reduced.matches;
   let dark = document.documentElement.dataset.theme === 'dark';
   // An almost frontal x-z projection retains the familiar butterfly silhouette.
@@ -112,7 +134,7 @@
   }
   function tick(time) {
     frame = 0;
-    if (paused || !visible || document.hidden) { last = 0; return; }
+    if (paused || !visible || scrolling || pageMoving || document.hidden) { last = 0; return; }
     if (last) carry += Math.min((time - last) / 1000, .08) * .65;
     last = time;
     let changed = false;
@@ -125,7 +147,7 @@
   function schedule() {
     if (frame) cancelAnimationFrame(frame);
     frame = 0; last = 0;
-    if (!paused && visible && !document.hidden) frame = requestAnimationFrame(tick);
+    if (!paused && visible && !scrolling && !pageMoving && !document.hidden) frame = requestAnimationFrame(tick);
   }
   function sync() {
     if (!button) { schedule(); return; }
@@ -136,8 +158,20 @@
   }
   button?.addEventListener('click', () => { manualPreference = true; paused = !paused; sync(); });
   reduced.addEventListener('change', event => { if (event.matches || !manualPreference) { paused = event.matches; sync(); } });
+  document.addEventListener('page-motion', event => {
+    pageMoving = !!event.detail?.active;
+    schedule();
+  });
+  document.addEventListener('scroll', () => {
+    if (!scrolling) { scrolling = true; schedule(); }
+    clearTimeout(scrollTimer);
+    scrollTimer = setTimeout(() => { scrolling = false; schedule(); }, 120);
+  }, { passive: true, capture: true });
   document.addEventListener('visibilitychange', schedule);
-  window.addEventListener('pagehide', () => { cancelAnimationFrame(frame); frame = 0; last = 0; });
+  window.addEventListener('pagehide', () => {
+    clearTimeout(scrollTimer); scrolling = pageMoving = false;
+    cancelAnimationFrame(frame); frame = 0; last = 0;
+  });
   window.addEventListener('pageshow', schedule);
   if ('ResizeObserver' in window) new ResizeObserver(resize).observe(canvas.parentElement);
   else window.addEventListener('resize', resize, { passive: true });
@@ -185,12 +219,12 @@
 })();
 
 
-// Repeat subtle entrance and departure motion as content crosses the viewport.
+// Quiet entrances yield to paging so content and the viewport never drift separately.
 (() => {
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
   if (!('IntersectionObserver' in window)) return;
   const groups = [
-    '.hero-heading h1, .hero-intro, .chaos-figure',
+    '.hero-heading, .hero-intro, .chaos-figure',
     '.about-sidebar, .about-section .section-body',
     '.research-layout > .section-marker, .research-layout > .section-intro',
     '.research-grid > .research-card',
@@ -203,7 +237,7 @@
   groups.forEach(selector => {
     document.querySelectorAll(selector).forEach((element, index) => {
       if (typeof element.animate === 'function') {
-        records.set(element, { visible: null, animation: null, delay: Math.min(index * 65, 130) });
+        records.set(element, { visible: null, animation: null, delay: Math.min(index * 30, 60) });
       }
     });
   });
@@ -232,28 +266,17 @@
         if (visible === record.visible) continue;
         const previous = record.visible;
         record.visible = visible;
-        if (reduced.matches || document.hidden || (restore && previous === null) || element.contains(document.activeElement)) {
+        if (!visible || reduced.matches || document.hidden || document.documentElement.classList.contains('is-page-scrolling') || (restore && previous === null) || element.contains(document.activeElement)) {
           cancel(record);
           continue;
         }
-        // Do not animate unseen content when the observer first initializes.
-        if (!visible && previous === null) continue;
-        const current = getComputedStyle(element);
-        const direction = entry.boundingClientRect.top < 0 ? -1 : 1;
-        const from = record.animation
-          ? { opacity: current.opacity, translate: current.translate }
-          : visible
-            ? { opacity: .45, translate: '0 ' + direction * 20 + 'px' }
-            : { opacity: 1, translate: '0 0' };
         cancel(record);
         const animation = element.animate(
-          [from, visible
-            ? { opacity: 1, translate: '0 0' }
-            : { opacity: .45, translate: '0 ' + direction * 14 + 'px' }],
-          { duration: visible ? 620 : 340, delay: visible ? record.delay : 0, easing: 'cubic-bezier(.22, 1, .36, 1)', fill: 'both' }
+          [{ opacity: .65, translate: '0 8px' }, { opacity: 1, translate: '0 0' }],
+          { duration: 380, delay: record.delay, easing: 'cubic-bezier(.22, 1, .36, 1)', fill: 'both' }
         );
         record.animation = animation;
-        if (visible) animation.onfinish = () => {
+        animation.onfinish = () => {
           if (record.animation === animation) {
             animation.onfinish = null;
             animation.cancel();
@@ -264,6 +287,9 @@
     }, { threshold: 0, rootMargin: '24px 0px' });
     records.forEach((record, element) => observer.observe(element));
   }
+  document.addEventListener('page-motion', event => {
+    if (event.detail?.active) records.forEach(cancel);
+  });
   reduced.addEventListener('change', () => start(true));
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) reset();
@@ -283,243 +309,248 @@
 })();
 
 
-// Spring paging: reveal the next page under tension, return on release, commit past a threshold.
+// A resisted pull, a short release, and a quiet landing share one scroll position.
 (() => {
-  const desktop = window.matchMedia('(min-width: 851px) and (hover: hover) and (pointer: fine)');
-  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
+  const desktop = matchMedia('(min-width: 851px) and (hover: hover) and (pointer: fine)');
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)');
   const root = document.documentElement;
+  const header = document.querySelector('.site-header');
   const pages = [...document.querySelectorAll('main > section')];
   const footer = document.querySelector('footer');
   if (!pages.length || !footer) return;
-  const threshold = () => Math.max(320, Math.min(390, window.innerHeight * .42));
-  let frame = 0, releaseTimer = 0, lastFrame = 0;
-  let position = 0, velocity = 0, targetPosition = 0;
-  let origin = 0, destination = null, budget = 0;
-  let mode = 'idle', preview = null;
-  let lastInput = -Infinity, lastMagnitude = 0, lastDirection = 0, locked = false;
-  let pageStops = [], limit = 0, layoutFrame = 0, layoutAnchor = null;
-  let nativeScroller = null, nativeDirection = 0;
-  let lastWritten = null, previousGeometry = null;
+  const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
+  const enabled = () => desktop.matches && !reduced.matches;
+  const geometry = () => [innerWidth, innerHeight, header?.offsetHeight || 88];
+  const maximum = () => Math.max(0, root.scrollHeight - innerHeight);
+  let frame = 0, releaseTimer = 0, layoutFrame = 0, lastFrame = 0;
+  let mode = 'idle', position = scrollY, velocity = 0, target = scrollY;
+  let origin = scrollY, dragBase = scrollY, budget = 0, destination = null;
+  let preview = null, flight = null, queuedBudget = null;
+  let points = [], limit = maximum(), layoutAnchor = null, previousGeometry = null;
   let layoutReady = document.readyState === 'complete';
+  let lastWritten = null, lastInput = -Infinity, lastMagnitude = 0, lastDirection = 0, locked = false;
+  let nativeScroller = null, nativeDirection = 0, edgeBudget = 0, edgeStreak = 0;
 
-  function enabled() { return desktop.matches && !reduced.matches; }
+  function moving(active) {
+    if (root.classList.contains('is-page-scrolling') === active) return;
+    root.classList.toggle('is-page-scrolling', active);
+    document.dispatchEvent(new CustomEvent('page-motion', { detail: { active } }));
+  }
   function clearPreview() {
     preview?.classList.remove('spring-preview');
     preview = null;
   }
   function cancel() {
-    if (frame) cancelAnimationFrame(frame);
-    cancelAnimationFrame(layoutFrame);
-    layoutFrame = 0; layoutAnchor = null;
+    cancelAnimationFrame(frame); cancelAnimationFrame(layoutFrame);
     clearTimeout(releaseTimer);
-    frame = 0; releaseTimer = 0; lastFrame = 0;
-    velocity = 0; budget = 0; mode = 'idle'; destination = null;
-    locked = false; lastInput = -Infinity; lastMagnitude = 0; lastDirection = 0;
-    clearPreview();
-    nativeScroller = null; nativeDirection = 0; lastWritten = null;
-    root.classList.remove('is-page-scrolling');
+    frame = layoutFrame = releaseTimer = 0;
+    layoutAnchor = flight = queuedBudget = destination = null;
+    mode = 'idle'; velocity = budget = 0; locked = false;
+    nativeScroller = null; edgeBudget = edgeStreak = 0;
+    lastWritten = null; lastInput = -Infinity; lastMagnitude = lastDirection = 0;
+    clearPreview(); moving(false);
+  }
+  function readStops() {
+    limit = maximum();
+    const offset = header?.offsetHeight || 88;
+    const stops = [...pages, footer].map(element => ({ element,
+      position: clamp(element.getBoundingClientRect().top + scrollY - offset, 0, limit)
+    }));
+    stops.push({ position: limit, element: footer });
+    points = stops.sort((a, b) => a.position - b.position).filter((point, index, all) =>
+      !index || point.position - all[index - 1].position > 2);
   }
   function configure() {
-    // Initial observers and pageshow must leave native fragment/history scrolling alone.
-    const geometry = [window.innerWidth, window.innerHeight, document.querySelector('.site-header')?.offsetHeight || 90];
-    const resized = previousGeometry && geometry.some((value, index) => value !== previousGeometry[index]);
-    previousGeometry = geometry;
+    const measured = geometry();
+    const resized = previousGeometry && measured.some((value, i) => value !== previousGeometry[i]);
+    previousGeometry = measured;
     const anchor = layoutAnchor || (layoutReady && resized ? (mode === 'commit' ? destination :
-      pageStops.find(point => Math.abs(point.position - (mode === 'idle' ? window.scrollY : origin)) < 4)) : null);
-    cancel();
-    root.classList.toggle('wheel-paging', enabled());
-    layoutAnchor = anchor;
+      points.find(point => Math.abs(point.position - (mode === 'idle' ? scrollY : origin)) < 4)) : null);
+    cancel(); root.classList.toggle('wheel-paging', enabled()); layoutAnchor = anchor;
     layoutFrame = requestAnimationFrame(() => {
-      layoutFrame = 0; layoutAnchor = null;
-      pageStops = stops();
-      limit = maximum();
+      layoutFrame = 0; layoutAnchor = null; readStops();
       if (enabled() && anchor) {
-        const point = pageStops.find(item => item.element === anchor.element);
-        if (point) window.scrollTo({ top: point.position, behavior: 'instant' });
+        const next = points.find(point => point.element === anchor.element);
+        if (next) scrollTo({ top: next.position, behavior: 'instant' });
       }
     });
   }
-  function maximum() { return Math.max(0, root.scrollHeight - window.innerHeight); }
-  function stops() {
-    const offset = document.querySelector('.site-header')?.offsetHeight || 90;
-    const limit = maximum();
-    const points = [...pages, footer].map(element => ({
-      position: Math.max(0, Math.min(limit, element.getBoundingClientRect().top + window.scrollY - offset)),
-      element
-    }));
-    points.push({ position: limit, element: footer });
-    return points.sort((a, b) => a.position - b.position).filter((point, index, all) =>
-      index === 0 || point.position - all[index - 1].position > 2
-    );
-  }
   function nextStop(direction) {
-    const points = pageStops;
-    return direction > 0
-      ? points.find(point => point.position > origin + 2)
+    return direction > 0 ? points.find(point => point.position > origin + 2)
       : [...points].reverse().find(point => point.position < origin - 2);
   }
-  function canScrollInside(element, direction) {
+  function effortLimit(point) {
+    const base = clamp(innerHeight * .37, 300, 360);
+    // A short footer needs proportionately less effort than a complete page.
+    return Math.min(base, Math.max(100, Math.abs(point.position - origin) * .55));
+  }
+  function scrollable(element, direction) {
     for (; element && element !== document.body && element !== root; element = element.parentElement) {
       if (element.scrollHeight <= element.clientHeight + 2) continue;
-      const style = getComputedStyle(element);
-      if (!/(auto|scroll)/.test(style.overflowY)) continue;
+      if (!/(auto|scroll)/.test(getComputedStyle(element).overflowY)) continue;
       if (direction > 0 && element.scrollTop < element.scrollHeight - element.clientHeight - 2) return element;
       if (direction < 0 && element.scrollTop > 2) return element;
     }
-    return false;
+    return null;
   }
-  function ensureFrame() {
+  function schedule() {
     if (frame) return;
-    lastFrame = performance.now();
-    frame = requestAnimationFrame(tick);
+    lastFrame = performance.now(); frame = requestAnimationFrame(tick);
+  }
+  function writePosition() {
+    const rounded = Math.round(position);
+    if (lastWritten === null || Math.abs(rounded - lastWritten) >= 1) {
+      scrollTo({ top: rounded, behavior: 'instant' });
+      lastWritten = scrollY;
+    }
+  }
+  function startGesture() {
+    origin = position = target = dragBase = scrollY;
+    budget = velocity = 0; lastWritten = null; flight = null;
+    readStops();
+  }
+  function release() {
+    releaseTimer = 0;
+    if (mode !== 'preview') return;
+    mode = 'return'; budget = 0; target = origin; schedule();
+  }
+  function commit(now) {
+    mode = 'commit'; target = destination.position; locked = true;
+    const distance = target - position;
+    const duration = clamp(.18 + Math.abs(distance) / 1700, .18, .52);
+    // Quintic Hermite: keep position/velocity, arrive with zero velocity/acceleration.
+    // Limiting normalized initial speed keeps short transitions monotonic.
+    const speed = Math.sign(distance) * clamp(velocity * Math.sign(distance), 0, 2.5 * Math.abs(distance) / duration);
+    const tangent = speed * duration;
+    // A small forward acceleration releases the resistance without an idle beat.
+    // Keep it within the monotonic Hermite range, including very short landings.
+    const normalizedSpeed = distance ? tangent / distance : 0;
+    const acceleration = distance * Math.max(0, Math.min(4, 20 - 8 * normalizedSpeed));
+    flight = { start: now, duration, from: position, distance, tangent, acceleration };
+    velocity = speed;
+    clearPreview();
+  }
+  function pull(delta, accumulated = false) {
+    clearTimeout(releaseTimer);
+    budget += accumulated ? delta : clamp(delta, -140, 140);
+    destination = nextStop(Math.sign(budget) || Math.sign(delta));
+    if (!destination) {
+      mode = 'return'; target = origin; budget = 0; clearPreview(); schedule(); return;
+    }
+    const effort = effortLimit(destination);
+    if (Math.abs(budget) >= effort) commit(performance.now());
+    else {
+      mode = 'preview';
+      if (preview !== destination.element) {
+        clearPreview(); preview = destination.element; preview.classList.add('spring-preview');
+      }
+      const direction = Math.sign(destination.position - origin);
+      const span = Math.abs(destination.position - origin);
+      const progress = Math.abs(budget) / effort;
+      const travel = Math.min(span * .44, effort * .84) * (1.5 * progress / (1 + .5 * progress));
+      target = clamp(dragBase + direction * travel,
+        Math.min(origin, destination.position), Math.max(origin, destination.position));
+      // Regrabbing a returning page starts where the hand found it, not at zero.
+      target = direction > 0 ? Math.min(target, destination.position - 1) : Math.max(target, destination.position + 1);
+      releaseTimer = setTimeout(release, 190);
+    }
+    moving(true); schedule();
+  }
+  function finish() {
+    position = target; velocity = 0; writePosition();
+    const queued = queuedBudget;
+    clearPreview(); mode = 'idle'; destination = flight = queuedBudget = null; budget = 0;
+    if (queued !== null) {
+      startGesture(); locked = false;
+      if (nextStop(Math.sign(queued))) { pull(queued, true); return; }
+    }
+    moving(false);
   }
   function tick(time) {
     frame = 0;
-    // Browser history, focus and scripted anchors take priority over a pending spring.
-    if (lastWritten !== null && Math.abs(window.scrollY - lastWritten) > 3) { cancel(); return; }
-    limit = maximum();
-    targetPosition = Math.max(0, Math.min(limit, targetPosition));
-    const dt = Math.min(.064, Math.max(.001, (time - lastFrame) / 1000));
+    // Native focus, anchors and history always win over an outstanding animation.
+    if (lastWritten !== null && Math.abs(scrollY - lastWritten) > 3) { cancel(); return; }
+    const dt = clamp((time - lastFrame) / 1000, .001, .05);
     lastFrame = time;
-    let next;
-    if (mode === 'preview') {
-      // Follow input within a frame; resistance belongs in the displacement curve,
-      // not in a second slow spring between the gesture and its visible response.
-      next = position + (targetPosition - position) * (1 - Math.exp(-dt / .024));
-      velocity = Math.max(-1800, Math.min(1800, (next - position) / dt));
+    if (mode === 'commit' && flight) {
+      const u = clamp((time - flight.start) / (flight.duration * 1000), 0, 1);
+      const { from, distance: d, tangent: m, acceleration: a, duration } = flight;
+      position = from + m * u + (10 * d - 6 * m) * u ** 3 + (-15 * d + 8 * m) * u ** 4 + (6 * d - 3 * m) * u ** 5 + .5 * a * u ** 2 * (1 - u) ** 3;
+      velocity = (m + (30 * d - 18 * m) * u ** 2 + (-60 * d + 32 * m) * u ** 3 + (30 * d - 15 * m) * u ** 4 + .5 * a * (2 * u - 9 * u ** 2 + 12 * u ** 3 - 5 * u ** 4)) / duration;
+      if (u === 1) { finish(); return; }
     } else {
-      // Exact critically damped spring, independent of 60/120 Hz frame timing.
-      const omega = mode === 'return' ? 17 : 13.5;
-      const displacement = position - targetPosition;
+      const omega = mode === 'preview' ? 72 : 22;
+      const displacement = position - target;
       const momentum = velocity + omega * displacement;
       const decay = Math.exp(-omega * dt);
-      next = targetPosition + (displacement + momentum * dt) * decay;
+      position = target + (displacement + momentum * dt) * decay;
       velocity = (velocity - omega * momentum * dt) * decay;
-    }
-    position = Math.max(0, Math.min(limit, next));
-    if (position !== next) velocity = 0;
-    window.scrollTo({ top: position, behavior: 'instant' });
-    lastWritten = window.scrollY;
-    const settled = Math.abs(targetPosition - position) < .4 && Math.abs(velocity) < 5;
-    if (settled) {
-      position = targetPosition;
-      velocity = 0;
-      window.scrollTo({ top: position, behavior: 'instant' });
-      lastWritten = window.scrollY;
-      if (mode !== 'preview') {
-        clearPreview();
-        mode = 'idle'; budget = 0; destination = null;
-        root.classList.remove('is-page-scrolling');
+      if (Math.abs(target - position) < .6 && Math.abs(velocity) < 12) {
+        if (mode !== 'preview') { finish(); return; }
+        position = target; velocity = 0; writePosition(); return;
       }
-      return;
     }
+    position = clamp(position, 0, limit); writePosition();
     frame = requestAnimationFrame(tick);
   }
-  function returnToOrigin() {
-    releaseTimer = 0;
-    if (mode !== 'preview') return;
-    mode = 'return';
-    budget = 0;
-    targetPosition = origin;
-    ensureFrame();
-  }
-  function pull(delta) {
-    clearTimeout(releaseTimer);
-    budget += Math.max(-110, Math.min(110, delta));
-    const direction = Math.sign(budget);
-    destination = nextStop(direction || Math.sign(delta));
-    if (!destination) {
-      budget = 0;
-      mode = 'return'; targetPosition = origin;
-      ensureFrame();
-      return;
-    }
-    if (preview !== destination.element) {
-      clearPreview();
-      preview = destination.element;
-      preview.classList.add('spring-preview');
-    }
-    if (Math.abs(budget) >= threshold()) {
-      mode = 'commit';
-      targetPosition = destination.position;
-      locked = true;
-      clearPreview();
-    } else {
-      mode = 'preview';
-      const span = destination.position - origin;
-      // Resistance rises with displacement; a light gesture still exposes the next page.
-      targetPosition = origin + span * .42 * (1 - Math.exp(-Math.abs(budget) / 155));
-      releaseTimer = setTimeout(returnToOrigin, 340);
-    }
-    ensureFrame();
-  }
-  window.addEventListener('wheel', event => {
+  addEventListener('wheel', event => {
     if (!enabled() || event.defaultPrevented || !event.cancelable) return;
     if (event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) { cancel(); return; }
     if (Math.abs(event.deltaX) > Math.abs(event.deltaY) || !event.deltaY) return;
     const element = event.target instanceof Element ? event.target : document.body;
     if (element.closest('input, textarea, select, [contenteditable], dialog, [role="dialog"]')) { cancel(); return; }
-    const now = performance.now();
-    const idle = now - lastInput;
-    const delta = event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? window.innerHeight : 1);
-    const magnitude = Math.abs(delta);
-    const direction = Math.sign(delta);
-    const freshGesture = idle >= 120 || direction !== lastDirection ||
-      (magnitude >= 12 && magnitude > lastMagnitude * 2 + 4);
-    lastInput = now;
-    lastMagnitude = magnitude; lastDirection = direction;
+    const now = performance.now(), idle = now - lastInput;
+    const delta = event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? innerHeight : 1);
+    const magnitude = Math.abs(delta), direction = Math.sign(delta), previousMagnitude = lastMagnitude;
+    const fresh = idle >= 160 || direction !== lastDirection || (magnitude >= 12 && magnitude > previousMagnitude * 2 + 4);
+    lastInput = now; lastMagnitude = magnitude; lastDirection = direction;
     if (mode === 'commit') {
       event.preventDefault();
-      if (direction !== Math.sign(targetPosition - origin)) {
-        // Reversing the gesture releases the committed page immediately.
-        locked = true; budget = 0; mode = 'return';
-        targetPosition = origin; clearPreview(); ensureFrame();
+      if (direction !== Math.sign(target - origin)) {
+        mode = 'return'; target = origin; flight = queuedBudget = null; budget = 0; locked = true;
+        clearPreview(); schedule();
+      } else if (queuedBudget !== null || (fresh && now - flight.start > 140)) {
+        queuedBudget = (queuedBudget || 0) + clamp(delta, -140, 140);
       }
       return;
     }
-    if (locked && !freshGesture) { event.preventDefault(); return; }
+    if (locked && !fresh) { event.preventDefault(); return; }
     locked = false;
     if (mode === 'idle') {
-      const scroller = canScrollInside(element, direction);
-      if (scroller) { nativeScroller = scroller; nativeDirection = direction; return; }
-      // Finish reading a long section before a new gesture turns the page.
-      if (nativeScroller && nativeScroller.contains(element) && direction === nativeDirection && !freshGesture) {
-        event.preventDefault(); return;
+      const scroller = scrollable(element, direction);
+      if (scroller) { nativeScroller = scroller; nativeDirection = direction; edgeBudget = edgeStreak = 0; return; }
+      let carry = 0;
+      if (nativeScroller && direction === nativeDirection && !fresh) {
+        // Decaying momentum stays in the section; sustained pressure can keep going.
+        const steady = magnitude >= 18 && magnitude >= previousMagnitude * .92;
+        edgeStreak = steady ? edgeStreak + 1 : 0;
+        edgeBudget = steady ? edgeBudget + clamp(delta, -140, 140) : 0;
+        if (edgeStreak < 2) { event.preventDefault(); return; }
+        carry = edgeBudget - clamp(delta, -140, 140);
       }
-      nativeScroller = null;
-      origin = window.scrollY;
-      pageStops = stops();
-      limit = maximum();
-      if (!nextStop(Math.sign(delta))) return;
-      position = origin; targetPosition = origin; velocity = 0; budget = 0; lastWritten = null;
+      nativeScroller = null; edgeBudget = edgeStreak = 0;
+      startGesture(); budget = carry;
+      if (!nextStop(direction)) return;
+    } else if (mode === 'return') {
+      dragBase = position; budget = 0;
+      // A hand catching the page absorbs its opposite momentum immediately.
+      if (velocity * direction < 0) velocity = 0;
     }
-    if (mode === 'return') {
-      // A new pull starts from its own effort, while retaining a smooth position.
-      budget = 0;
-    }
-    event.preventDefault();
-    root.classList.add('wheel-paging', 'is-page-scrolling');
-    pull(delta);
+    event.preventDefault(); root.classList.add('wheel-paging'); pull(delta);
   }, { passive: false });
-  window.addEventListener('resize', configure, { passive: true });
-  window.addEventListener('keydown', cancel);
-  window.addEventListener('pointerdown', cancel, { passive: true });
-  window.addEventListener('touchstart', () => { cancel(); root.classList.remove('wheel-paging'); }, { passive: true });
+  addEventListener('resize', configure, { passive: true });
+  addEventListener('keydown', cancel);
+  addEventListener('pointerdown', cancel, { passive: true });
+  addEventListener('touchstart', () => { cancel(); root.classList.remove('wheel-paging'); }, { passive: true });
   document.addEventListener('focusin', cancel);
-  window.addEventListener('hashchange', cancel);
-  window.addEventListener('popstate', cancel);
-  window.addEventListener('pagehide', cancel);
-  window.addEventListener('pageshow', configure);
-  window.addEventListener('load', () => {
-    // Late styles/fonts can change header measurements during a reload.
-    // Establish the baseline only after native initial navigation can finish.
+  addEventListener('hashchange', cancel); addEventListener('popstate', cancel);
+  addEventListener('pagehide', cancel); addEventListener('pageshow', configure);
+  addEventListener('load', () => {
     layoutReady = true; previousGeometry = null;
     if (mode === 'idle') configure();
   }, { once: true });
-  const header = document.querySelector('.site-header');
   if (header && 'ResizeObserver' in window) new ResizeObserver(configure).observe(header);
   document.addEventListener('visibilitychange', () => { if (document.hidden) cancel(); });
-  desktop.addEventListener('change', configure);
-  reduced.addEventListener('change', configure);
+  desktop.addEventListener('change', configure); reduced.addEventListener('change', configure);
   configure();
 })();

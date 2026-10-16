@@ -72,10 +72,14 @@
       });
       if (loaded.decode) await loaded.decode();
       if (token !== request || !dialog.open) return;
+      // Finish this short blend before replacing its layers. Only the latest
+      // decoded request continues, so quick input never resets a partial fade.
+      if (photoAnimations.length) await Promise.allSettled(photoAnimations.map(animation => animation.finished));
+      if (token !== request || !dialog.open) return;
       clearTimeout(loadingTimer);
       clearTransition();
       const previousSource = !image.hidden && image.getAttribute('src');
-      const animate = !reduced.matches && typeof image.animate === 'function';
+      const animate = !reduced.matches && !document.hidden && previousSource !== loaded.src && typeof image.animate === 'function';
       if (previousSource && animate) {
         outgoing.src = previousSource;
         outgoing.hidden = false;
@@ -88,9 +92,8 @@
       stage.setAttribute('aria-busy', 'false');
       // Keep the old photograph until its replacement is decoded, then blend.
       if (animate) {
-        const options = { duration: 220, easing: 'cubic-bezier(.22, 1, .36, 1)' };
+        const options = { duration: 180, easing: 'cubic-bezier(.22, 1, .36, 1)' };
         photoAnimations = [image.animate([{ opacity: 0 }, { opacity: 1 }], options)];
-        if (previousSource) photoAnimations.push(outgoing.animate([{ opacity: 1 }, { opacity: 0 }], options));
         Promise.all(photoAnimations.map(animation => animation.finished)).then(() => {
           if (token === request) clearTransition();
         }).catch(() => {});
@@ -202,6 +205,7 @@
     if (!start || event.pointerId !== start.pointerId) return;
     const dx = event.clientX - start.x, dy = event.clientY - start.y;
     start = null;
+    if (window.visualViewport && window.visualViewport.scale > 1.05) return;
     if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) showPhoto(index + (dx < 0 ? 1 : -1));
   });
   function syncHash() {
@@ -229,6 +233,13 @@
     }, { threshold: .05 });
     document.querySelectorAll('.photo-item').forEach(item => observer.observe(item));
   }
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) return;
+    start = null;
+    clearTransition();
+    entrances.forEach(animation => animation.cancel());
+    entrances.clear();
+  });
   const stopMotion = () => {
     if (!reduced.matches) return;
     clearTransition();

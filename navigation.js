@@ -4,18 +4,26 @@
   const header = document.querySelector('.site-header');
   const isHome = !page && !document.body.classList.contains('gallery-page');
   if (!isHome && header) {
-    let frame = 0;
+    let frame = 0, measure = true, previousHeight = 0;
     const syncHeader = () => {
       frame = 0;
-      document.documentElement.style.setProperty('--header-height', header.offsetHeight + 'px');
+      if (measure) {
+        measure = false;
+        const height = header.offsetHeight;
+        if (height !== previousHeight) {
+          document.documentElement.style.setProperty('--header-height', height + 'px');
+          previousHeight = height;
+        }
+      }
       header.classList.toggle('is-scrolled', window.scrollY > 12);
     };
     const schedule = () => { if (!frame) frame = requestAnimationFrame(syncHeader); };
+    const scheduleMeasure = () => { measure = true; schedule(); };
     syncHeader();
-    if ('ResizeObserver' in window) new ResizeObserver(schedule).observe(header);
-    window.addEventListener('resize', schedule, { passive: true });
+    if ('ResizeObserver' in window) new ResizeObserver(scheduleMeasure).observe(header);
+    window.addEventListener('resize', scheduleMeasure, { passive: true });
     window.addEventListener('scroll', schedule, { passive: true });
-    window.addEventListener('pageshow', schedule);
+    window.addEventListener('pageshow', scheduleMeasure);
   }
   if (page) document.querySelectorAll('nav a').forEach(link => {
     const selected = new URL(link.href).pathname === location.pathname;
@@ -71,6 +79,7 @@
     { visible: false, initial: true, animations: new Set() }
   ]));
   let observer = null;
+  let pageMoving = document.documentElement.classList.contains('is-page-scrolling');
   function cancel(record) {
     record.animations.forEach(animation => {
       animation.onfinish = animation.oncancel = null;
@@ -95,7 +104,8 @@
       if (visible === record.visible) return;
       record.visible = visible;
       cancel(record);
-      if (!visible || reduced.matches || document.hidden || (restore && first)
+      if (!visible || pageMoving || document.documentElement.classList.contains('is-page-scrolling')
+        || reduced.matches || document.hidden || (restore && first)
         || entry.target.contains(document.activeElement)) return;
       const direction = entry.boundingClientRect.top < (entry.rootBounds?.top || 0) ? -1 : 1;
       [...entry.target.children].forEach((child, index) => {
@@ -103,9 +113,9 @@
         const style = getComputedStyle(child);
         const transform = style.transform === 'none' ? '' : ' ' + style.transform;
         const animation = child.animate([
-          { opacity: .3, transform: `translateY(${direction * 16}px)${transform}` },
+          { opacity: .65, transform: `translateY(${direction * 8}px)${transform}` },
           { opacity: style.opacity, transform: style.transform }
-        ], { duration: 440, delay: Math.min(index * 55, 165), easing: 'cubic-bezier(.22,1,.36,1)', fill: 'backwards' });
+        ], { duration: 380, delay: Math.min(index * 20, 60), easing: 'cubic-bezier(.22,1,.36,1)', fill: 'backwards' });
         record.animations.add(animation);
         animation.onfinish = () => {
           record.animations.delete(animation);
@@ -116,12 +126,19 @@
     }), { threshold: [0, .04, .12] });
     records.forEach((record, element) => observer.observe(element));
   }
+  document.addEventListener('page-motion', event => {
+    pageMoving = event.detail?.active === true;
+    if (pageMoving) records.forEach(cancel);
+  });
   reduced.addEventListener('change', () => start(true));
   document.addEventListener('focusin', event => {
     records.forEach((record, element) => { if (element.contains(event.target)) cancel(record); });
   });
   document.addEventListener('visibilitychange', () => { if (document.hidden) stop(); else start(true); });
   window.addEventListener('pagehide', stop);
-  window.addEventListener('pageshow', event => { if (event.persisted) start(true); });
+  window.addEventListener('pageshow', event => {
+    pageMoving = document.documentElement.classList.contains('is-page-scrolling');
+    if (event.persisted) start(true);
+  });
   start();
 })();
