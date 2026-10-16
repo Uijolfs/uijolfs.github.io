@@ -99,8 +99,7 @@
     ctx.fill(); ctx.shadowBlur = 0;
   }
   function resize() {
-    const rect = canvas.getBoundingClientRect();
-    width = rect.width; height = rect.height;
+    width = canvas.clientWidth; height = canvas.clientHeight;
     ratio = Math.min(window.devicePixelRatio || 1, 2);
     canvas.width = backdrop.width = Math.round(width * ratio);
     canvas.height = backdrop.height = Math.round(height * ratio);
@@ -129,14 +128,17 @@
     if (!paused && visible && !document.hidden) frame = requestAnimationFrame(tick);
   }
   function sync() {
+    if (!button) { schedule(); return; }
     button.textContent = paused ? 'Play motion' : 'Pause motion';
     button.setAttribute('aria-label', paused ? 'Play Lorenz animation' : 'Pause Lorenz animation');
     button.setAttribute('aria-pressed', String(paused));
     schedule();
   }
-  button.addEventListener('click', () => { manualPreference = true; paused = !paused; sync(); });
-  reduced.addEventListener('change', event => { if (!manualPreference) { paused = event.matches; sync(); } });
+  button?.addEventListener('click', () => { manualPreference = true; paused = !paused; sync(); });
+  reduced.addEventListener('change', event => { if (event.matches || !manualPreference) { paused = event.matches; sync(); } });
   document.addEventListener('visibilitychange', schedule);
+  window.addEventListener('pagehide', () => { cancelAnimationFrame(frame); frame = 0; last = 0; });
+  window.addEventListener('pageshow', schedule);
   if ('ResizeObserver' in window) new ResizeObserver(resize).observe(canvas.parentElement);
   else window.addEventListener('resize', resize, { passive: true });
   if ('IntersectionObserver' in window) new IntersectionObserver(entries => {
@@ -216,7 +218,7 @@
     observer = null;
     records.forEach(record => { cancel(record); record.visible = null; });
   }
-  function start() {
+  function start(restore = false) {
     reset();
     if (reduced.matches) return;
     observer = new IntersectionObserver(entries => {
@@ -224,12 +226,13 @@
         const element = entry.target;
         const record = records.get(element);
         if (!record) continue;
-        // Different entry and exit thresholds avoid flicker at a boundary.
-        const visible = entry.isIntersecting && entry.intersectionRatio >= (record.visible === true ? .07 : .18);
+        // Wait until a card has left the viewport before replaying its entrance.
+        // Ratio thresholds can leave tall content permanently faded on small screens.
+        const visible = entry.isIntersecting;
         if (visible === record.visible) continue;
         const previous = record.visible;
         record.visible = visible;
-        if (reduced.matches || document.hidden || element.contains(document.activeElement)) {
+        if (reduced.matches || document.hidden || (restore && previous === null) || element.contains(document.activeElement)) {
           cancel(record);
           continue;
         }
@@ -238,15 +241,15 @@
         const current = getComputedStyle(element);
         const direction = entry.boundingClientRect.top < 0 ? -1 : 1;
         const from = record.animation
-          ? { opacity: current.opacity, transform: current.transform }
+          ? { opacity: current.opacity, translate: current.translate }
           : visible
-            ? { opacity: .22, transform: 'translateY(' + direction * 24 + 'px)' }
-            : { opacity: 1, transform: 'translateY(0)' };
+            ? { opacity: .45, translate: '0 ' + direction * 20 + 'px' }
+            : { opacity: 1, translate: '0 0' };
         cancel(record);
         const animation = element.animate(
           [from, visible
-            ? { opacity: 1, transform: 'translateY(0)' }
-            : { opacity: .28, transform: 'translateY(' + direction * 18 + 'px)' }],
+            ? { opacity: 1, translate: '0 0' }
+            : { opacity: .45, translate: '0 ' + direction * 14 + 'px' }],
           { duration: visible ? 620 : 340, delay: visible ? record.delay : 0, easing: 'cubic-bezier(.22, 1, .36, 1)', fill: 'both' }
         );
         record.animation = animation;
@@ -258,13 +261,16 @@
           }
         };
       }
-    }, { threshold: [0, .06, .08, .17, .19, .3], rootMargin: '-3% 0px -5% 0px' });
+    }, { threshold: 0, rootMargin: '24px 0px' });
     records.forEach((record, element) => observer.observe(element));
   }
-  reduced.addEventListener('change', start);
+  reduced.addEventListener('change', () => start(true));
   document.addEventListener('visibilitychange', () => {
-    if (document.hidden) records.forEach(cancel);
+    if (document.hidden) reset();
+    else start(true);
   });
+  window.addEventListener('pagehide', reset);
+  window.addEventListener('pageshow', event => { if (event.persisted) start(true); });
   document.addEventListener('focusin', event => {
     records.forEach((record, element) => {
       if (element.contains(event.target)) {
@@ -291,7 +297,10 @@
   let origin = 0, destination = null, budget = 0;
   let mode = 'idle', preview = null;
   let lastInput = -Infinity, lastMagnitude = 0, lastDirection = 0, locked = false;
-  let pageStops = [], limit = 0;
+  let pageStops = [], limit = 0, layoutFrame = 0, layoutAnchor = null;
+  let nativeScroller = null, nativeDirection = 0;
+  let lastWritten = null, previousGeometry = null;
+  let layoutReady = document.readyState === 'complete';
 
   function enabled() { return desktop.matches && !reduced.matches; }
   function clearPreview() {
@@ -300,16 +309,35 @@
   }
   function cancel() {
     if (frame) cancelAnimationFrame(frame);
+    cancelAnimationFrame(layoutFrame);
+    layoutFrame = 0; layoutAnchor = null;
     clearTimeout(releaseTimer);
     frame = 0; releaseTimer = 0; lastFrame = 0;
     velocity = 0; budget = 0; mode = 'idle'; destination = null;
     locked = false; lastInput = -Infinity; lastMagnitude = 0; lastDirection = 0;
     clearPreview();
+    nativeScroller = null; nativeDirection = 0; lastWritten = null;
     root.classList.remove('is-page-scrolling');
   }
   function configure() {
+    // Initial observers and pageshow must leave native fragment/history scrolling alone.
+    const geometry = [window.innerWidth, window.innerHeight, document.querySelector('.site-header')?.offsetHeight || 90];
+    const resized = previousGeometry && geometry.some((value, index) => value !== previousGeometry[index]);
+    previousGeometry = geometry;
+    const anchor = layoutAnchor || (layoutReady && resized ? (mode === 'commit' ? destination :
+      pageStops.find(point => Math.abs(point.position - (mode === 'idle' ? window.scrollY : origin)) < 4)) : null);
     cancel();
     root.classList.toggle('wheel-paging', enabled());
+    layoutAnchor = anchor;
+    layoutFrame = requestAnimationFrame(() => {
+      layoutFrame = 0; layoutAnchor = null;
+      pageStops = stops();
+      limit = maximum();
+      if (enabled() && anchor) {
+        const point = pageStops.find(item => item.element === anchor.element);
+        if (point) window.scrollTo({ top: point.position, behavior: 'instant' });
+      }
+    });
   }
   function maximum() { return Math.max(0, root.scrollHeight - window.innerHeight); }
   function stops() {
@@ -335,8 +363,8 @@
       if (element.scrollHeight <= element.clientHeight + 2) continue;
       const style = getComputedStyle(element);
       if (!/(auto|scroll)/.test(style.overflowY)) continue;
-      if (direction > 0 && element.scrollTop < element.scrollHeight - element.clientHeight - 2) return true;
-      if (direction < 0 && element.scrollTop > 2) return true;
+      if (direction > 0 && element.scrollTop < element.scrollHeight - element.clientHeight - 2) return element;
+      if (direction < 0 && element.scrollTop > 2) return element;
     }
     return false;
   }
@@ -347,6 +375,10 @@
   }
   function tick(time) {
     frame = 0;
+    // Browser history, focus and scripted anchors take priority over a pending spring.
+    if (lastWritten !== null && Math.abs(window.scrollY - lastWritten) > 3) { cancel(); return; }
+    limit = maximum();
+    targetPosition = Math.max(0, Math.min(limit, targetPosition));
     const dt = Math.min(.064, Math.max(.001, (time - lastFrame) / 1000));
     lastFrame = time;
     let next;
@@ -366,12 +398,14 @@
     }
     position = Math.max(0, Math.min(limit, next));
     if (position !== next) velocity = 0;
-    window.scrollTo(0, position);
+    window.scrollTo({ top: position, behavior: 'instant' });
+    lastWritten = window.scrollY;
     const settled = Math.abs(targetPosition - position) < .4 && Math.abs(velocity) < 5;
     if (settled) {
       position = targetPosition;
       velocity = 0;
-      window.scrollTo(0, position);
+      window.scrollTo({ top: position, behavior: 'instant' });
+      lastWritten = window.scrollY;
       if (mode !== 'preview') {
         clearPreview();
         mode = 'idle'; budget = 0; destination = null;
@@ -385,6 +419,7 @@
     releaseTimer = 0;
     if (mode !== 'preview') return;
     mode = 'return';
+    budget = 0;
     targetPosition = origin;
     ensureFrame();
   }
@@ -423,7 +458,7 @@
     if (event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) { cancel(); return; }
     if (Math.abs(event.deltaX) > Math.abs(event.deltaY) || !event.deltaY) return;
     const element = event.target instanceof Element ? event.target : document.body;
-    if (element.closest('input, textarea, select, [contenteditable], [role="dialog"]')) return;
+    if (element.closest('input, textarea, select, [contenteditable], dialog, [role="dialog"]')) { cancel(); return; }
     const now = performance.now();
     const idle = now - lastInput;
     const delta = event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? window.innerHeight : 1);
@@ -433,18 +468,34 @@
       (magnitude >= 12 && magnitude > lastMagnitude * 2 + 4);
     lastInput = now;
     lastMagnitude = magnitude; lastDirection = direction;
-    if (mode === 'commit' || (locked && !freshGesture)) {
+    if (mode === 'commit') {
       event.preventDefault();
+      if (direction !== Math.sign(targetPosition - origin)) {
+        // Reversing the gesture releases the committed page immediately.
+        locked = true; budget = 0; mode = 'return';
+        targetPosition = origin; clearPreview(); ensureFrame();
+      }
       return;
     }
+    if (locked && !freshGesture) { event.preventDefault(); return; }
     locked = false;
     if (mode === 'idle') {
-      if (canScrollInside(element, Math.sign(delta))) return;
+      const scroller = canScrollInside(element, direction);
+      if (scroller) { nativeScroller = scroller; nativeDirection = direction; return; }
+      // Finish reading a long section before a new gesture turns the page.
+      if (nativeScroller && nativeScroller.contains(element) && direction === nativeDirection && !freshGesture) {
+        event.preventDefault(); return;
+      }
+      nativeScroller = null;
       origin = window.scrollY;
       pageStops = stops();
       limit = maximum();
       if (!nextStop(Math.sign(delta))) return;
-      position = origin; targetPosition = origin; velocity = 0; budget = 0;
+      position = origin; targetPosition = origin; velocity = 0; budget = 0; lastWritten = null;
+    }
+    if (mode === 'return') {
+      // A new pull starts from its own effort, while retaining a smooth position.
+      budget = 0;
     }
     event.preventDefault();
     root.classList.add('wheel-paging', 'is-page-scrolling');
@@ -454,8 +505,19 @@
   window.addEventListener('keydown', cancel);
   window.addEventListener('pointerdown', cancel, { passive: true });
   window.addEventListener('touchstart', () => { cancel(); root.classList.remove('wheel-paging'); }, { passive: true });
+  document.addEventListener('focusin', cancel);
   window.addEventListener('hashchange', cancel);
+  window.addEventListener('popstate', cancel);
   window.addEventListener('pagehide', cancel);
+  window.addEventListener('pageshow', configure);
+  window.addEventListener('load', () => {
+    // Late styles/fonts can change header measurements during a reload.
+    // Establish the baseline only after native initial navigation can finish.
+    layoutReady = true; previousGeometry = null;
+    if (mode === 'idle') configure();
+  }, { once: true });
+  const header = document.querySelector('.site-header');
+  if (header && 'ResizeObserver' in window) new ResizeObserver(configure).observe(header);
   document.addEventListener('visibilitychange', () => { if (document.hidden) cancel(); });
   desktop.addEventListener('change', configure);
   reduced.addEventListener('change', configure);

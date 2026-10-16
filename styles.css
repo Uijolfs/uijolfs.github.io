@@ -288,6 +288,7 @@ main > section.spring-preview, footer.spring-preview {
 
 /* Visual refinement: a roomier header, stronger type hierarchy, and quiet depth. */
 :root {
+  --header-size: 104px;
   --header-height: 104px;
   --page-edge: clamp(28px, 4vw, 78px);
   --content-max: 1460px;
@@ -296,7 +297,7 @@ main > section.spring-preview, footer.spring-preview {
 body { font-size: 17px; line-height: 1.7; letter-spacing: -.006em; font-kerning: normal; text-rendering: optimizeLegibility; }
 .page-width { width: min(var(--content-max), calc(100% - 2 * var(--page-edge))); }
 .site-header {
-  height: var(--header-height); padding-inline: var(--page-edge); gap: 40px;
+  height: var(--header-size, 104px); padding-inline: var(--page-edge); gap: 40px;
   background: rgba(10, 12, 16, .88); border-color: rgba(124, 145, 177, .28);
   box-shadow: inset 0 -1px rgba(255,255,255,.012);
 }

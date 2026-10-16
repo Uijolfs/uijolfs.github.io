@@ -4,7 +4,7 @@ body{background:var(--bg);color:var(--text)}
 .site-header,.site-header.is-scrolled{background:rgba(242,240,235,.94);border-color:var(--line);box-shadow:0 4px 24px #30363806}
 nav{background:#ffffff30;border-color:var(--line)}nav a.active,nav a[aria-current=page]{background:#526f8010;color:var(--accent)}
 .hero::before{background:radial-gradient(circle,#87948722,transparent 68%)}
-.learning-section::before,.personal-section::before{background:none}
+.learning-section::before,.personal-section::before{display:none}
 .hero-intro .hero-description,.about-copy p,.section-intro>p,.personal-content p:not(.eyebrow),.interest-strip span{color:var(--muted)}
 .section-number,.hero-heading em{color:var(--accent)}
 .interest-strip span::before{background:var(--sage);box-shadow:none}

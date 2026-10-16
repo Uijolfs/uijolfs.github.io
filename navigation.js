@@ -2,41 +2,126 @@
 (() => {
   const page = document.body.dataset.page;
   const header = document.querySelector('.site-header');
-  if (page && header) {
-    const syncHeader = () => document.documentElement.style.setProperty('--header-height', header.offsetHeight + 'px');
+  const isHome = !page && !document.body.classList.contains('gallery-page');
+  if (!isHome && header) {
+    let frame = 0;
+    const syncHeader = () => {
+      frame = 0;
+      document.documentElement.style.setProperty('--header-height', header.offsetHeight + 'px');
+      header.classList.toggle('is-scrolled', window.scrollY > 12);
+    };
+    const schedule = () => { if (!frame) frame = requestAnimationFrame(syncHeader); };
     syncHeader();
-    if ('ResizeObserver' in window) new ResizeObserver(syncHeader).observe(header);
+    if ('ResizeObserver' in window) new ResizeObserver(schedule).observe(header);
+    window.addEventListener('resize', schedule, { passive: true });
+    window.addEventListener('scroll', schedule, { passive: true });
+    window.addEventListener('pageshow', schedule);
   }
   if (page) document.querySelectorAll('nav a').forEach(link => {
-    if (link.getAttribute('href') === page + '.html') {
-      link.classList.add('active'); link.setAttribute('aria-current', 'page');
-    }
+    const selected = new URL(link.href).pathname === location.pathname;
+    link.classList.toggle('active', selected);
+    if (selected) link.setAttribute('aria-current', 'page');
+    else link.removeAttribute('aria-current');
   });
+
   const key = 'uijolfs-home-return';
-  document.addEventListener('click', event => {
-    const link = event.target.closest('a');
-    if (!link || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-    if (!page && !document.body.classList.contains('gallery-page') && new URL(link.href).pathname !== location.pathname) {
-      const section = link.closest('main > section');
-      if (section) try { sessionStorage.setItem(key, section.id); } catch {}
-    }
-    if (link.hasAttribute('data-home-return')) {
-      try { const section = sessionStorage.getItem(key); if (section) link.href = 'index.html#' + section; } catch {}
-    }
-  });
-  const reduced = matchMedia('(prefers-reduced-motion: reduce)');
-  if (!reduced.matches && 'IntersectionObserver' in window) {
-    const observer = new IntersectionObserver(entries => entries.forEach(entry => {
-      if (!entry.isIntersecting || reduced.matches) return;
-      entry.target.getAnimations().forEach(a => a.cancel());
-      const children = [...entry.target.children];
-      children.forEach((child, i) => child.animate?.([
-        {opacity:.3, transform:'translateY(16px)'}, {opacity:1, transform:'none'}
-      ], {duration:440,delay:Math.min(i*55,165),easing:'cubic-bezier(.22,1,.36,1)'}));
-    }), {threshold:.12});
-    document.querySelectorAll('.chapter-inner').forEach(el => observer.observe(el));
-    reduced.addEventListener('change', () => {
-      if (reduced.matches) document.querySelectorAll('.chapter-inner > *').forEach(el => el.getAnimations().forEach(a => a.cancel()));
+  const homeSections = new Set(['home', 'about', 'research', 'notes', 'personal']);
+  const homePath = new URL('index.html', location.href).pathname;
+  const isHomePath = path => path === homePath || path === homePath.replace(/index\.html$/, '');
+  const returnLinks = [...document.querySelectorAll('a[data-home-return]')];
+  const originalLinks = new Map(returnLinks.map(link => [link, link.getAttribute('href')]));
+  function syncReturnLinks() {
+    let section = null;
+    try {
+      const record = JSON.parse(sessionStorage.getItem(key));
+      const referrer = document.referrer ? new URL(document.referrer) : null;
+      if (referrer?.origin === location.origin && isHomePath(referrer.pathname)
+        && record?.destination === location.pathname && homeSections.has(record.section)) section = record.section;
+    } catch {}
+    returnLinks.forEach(link => {
+      const original = originalLinks.get(link);
+      if (!section) { link.setAttribute('href', original); return; }
+      const url = new URL(original, location.href);
+      url.hash = section;
+      link.href = url.href;
     });
   }
+  // Resolve the actual href before interaction, so modifier-click and copying
+  // the link use the same destination as an ordinary click. BFCache retains
+  // this page's destination even after another visit updates session storage.
+  syncReturnLinks();
+  document.addEventListener('click', event => {
+    const link = event.target instanceof Element ? event.target.closest('a[href]') : null;
+    if (!isHome || !link || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey
+      || event.shiftKey || event.altKey || link.hasAttribute('download')
+      || (link.target && link.target.toLowerCase() !== '_self')) return;
+    const url = new URL(link.href);
+    if (url.origin !== location.origin || !['http:', 'https:'].includes(url.protocol) || isHomePath(url.pathname)) return;
+    const section = link.closest('main > section')?.id || url.pathname.split('/').pop().replace(/\.html$/, '');
+    if (homeSections.has(section)) {
+      try { sessionStorage.setItem(key, JSON.stringify({ section, destination: url.pathname })); } catch {}
+    }
+  });
+
+  // Each chapter owns its animations. Cancelling a chapter never interrupts
+  // unrelated hover, focus or page-transition effects on its descendants.
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)');
+  if (!('IntersectionObserver' in window)) return;
+  const records = new Map([...document.querySelectorAll('.chapter-inner')].map(element => [element,
+    { visible: false, initial: true, animations: new Set() }
+  ]));
+  let observer = null;
+  function cancel(record) {
+    record.animations.forEach(animation => {
+      animation.onfinish = animation.oncancel = null;
+      animation.cancel();
+    });
+    record.animations.clear();
+  }
+  function stop() {
+    observer?.disconnect();
+    observer = null;
+    records.forEach(cancel);
+  }
+  function start(restore = false) {
+    stop();
+    if (reduced.matches || document.hidden || !records.size) return;
+    records.forEach(record => { record.visible = false; record.initial = true; });
+    observer = new IntersectionObserver(entries => entries.forEach(entry => {
+      const record = records.get(entry.target);
+      const visible = entry.isIntersecting && entry.intersectionRatio >= (record.visible ? .04 : .12);
+      const first = record.initial;
+      record.initial = false;
+      if (visible === record.visible) return;
+      record.visible = visible;
+      cancel(record);
+      if (!visible || reduced.matches || document.hidden || (restore && first)
+        || entry.target.contains(document.activeElement)) return;
+      const direction = entry.boundingClientRect.top < (entry.rootBounds?.top || 0) ? -1 : 1;
+      [...entry.target.children].forEach((child, index) => {
+        if (typeof child.animate !== 'function') return;
+        const style = getComputedStyle(child);
+        const transform = style.transform === 'none' ? '' : ' ' + style.transform;
+        const animation = child.animate([
+          { opacity: .3, transform: `translateY(${direction * 16}px)${transform}` },
+          { opacity: style.opacity, transform: style.transform }
+        ], { duration: 440, delay: Math.min(index * 55, 165), easing: 'cubic-bezier(.22,1,.36,1)', fill: 'backwards' });
+        record.animations.add(animation);
+        animation.onfinish = () => {
+          record.animations.delete(animation);
+          animation.onfinish = null;
+          animation.cancel();
+        };
+      });
+    }), { threshold: [0, .04, .12] });
+    records.forEach((record, element) => observer.observe(element));
+  }
+  reduced.addEventListener('change', () => start(true));
+  document.addEventListener('focusin', event => {
+    records.forEach((record, element) => { if (element.contains(event.target)) cancel(record); });
+  });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) stop(); else start(true); });
+  window.addEventListener('pagehide', stop);
+  window.addEventListener('pageshow', event => { if (event.persisted) start(true); });
+  start();
 })();
